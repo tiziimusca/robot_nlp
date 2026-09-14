@@ -18,8 +18,10 @@ from robot import Robot
 from ejecutor import Ejecutor
 from evaluar import evaluar
 
+import re
+
 # Pone tu nombre: aparece en el reporte que entregas.
-ALUMNO = "Apellido, Nombre"
+ALUMNO = "Estudiante"
 
 
 # =====================================================================
@@ -34,48 +36,33 @@ class ClasificadorIntencion:
     def __init__(self):
         self.modelo = None
 
-        # -------------------------------------------------------------
-        #  NIVEL 2 (extension): entrenar un modelo con TU dataset.
-        #
-        #  Armas dataset.csv con tus propios ejemplos (texto,intencion),
-        #  descomentas estas dos lineas, y listo. El extractor, el
-        #  validador y el ejecutor NO se enteran: solo cambia como
-        #  clasificas.
-        #
-        #  Antes de esto, corre `python3 entrenar.py` para ver tus
-        #  metricas y que te avise si al dataset le falta algo.
-        # -------------------------------------------------------------
-        # from entrenar import entrenar_desde_csv
-        # self.modelo = entrenar_desde_csv()
-
     def clasificar(self, texto):
-        """Devuelve uno de los seis tipos de TIPOS.
+        t = texto.lower().strip()
 
-        Tiene que aguantar variantes del espanol rioplatense:
+        # Detenerse (prioridad para comandos de frenado)
+        if re.search(r"\b(detente|deten|detén|para|pará|frena|frená|quieto|no avances|pará todo|stop)\b", t):
+            return "DETENERSE"
 
-            avanza / avanza / movete / adelante / camina  ->  MOVER
-            gira / rota / dale una vuelta                 ->  GIRAR
-            detente / para / frena / quieto               ->  DETENERSE
-            saluda / hola / hace un saludo                ->  SALUDO
-            cuanta bateria / como estas / estado          ->  CONSULTAR_ESTADO
+        # Saludo
+        if re.search(r"\b(saluda|saludo|hacé un saludo|hace un saludo)\b", t):
+            return "SALUDO"
 
-        Todo lo que no reconozcas: DESCONOCIDO. Es una respuesta valida y
-        correcta, no una derrota.
+        # Consultar estado
+        if re.search(r"\b(bateria|batería|estado|cómo estás|como estas)\b", t):
+            return "CONSULTAR_ESTADO"
 
-        El modulo `re` alcanza para esto. Si despues queres probar con
-        scikit-learn o con un modelo de lenguaje, cambias SOLO esta clase:
-        el resto del pipeline no se entera. Esa es la gracia de que las
-        etapas sean independientes.
+        # Girar (incluye comandos con gira/rota/media vuelta o giro explicito)
+        if re.search(r"\b(girá|gira|rota|rotá|vuelta|media vuelta)\b", t):
+            return "GIRAR"
 
-        Si entrenaste un modelo (nivel 2), aca lo usas:
+        # Mover
+        if re.search(r"\b(avanzá|avanza|movete|muévete|caminá|camina|adelante|retrocedé|retrocede|atrás|atras|andá|anda)\b", t):
+            return "MOVER"
 
-            if self.modelo is not None:
-                return self.modelo.predict([texto])[0]
+        # Direcciones de giro sin verbo explicito (ej: "a la izquierda")
+        if re.search(r"\b(a la izquierda|a la derecha)\b", t):
+            return "GIRAR"
 
-        Conviene dejar las reglas como respaldo: si el dataset no esta o
-        scikit-learn no esta instalado, el agente sigue funcionando.
-        """
-        # TU CODIGO ACA
         return "DESCONOCIDO"
 
 
@@ -86,74 +73,80 @@ class ExtractorParametros:
     """Saca los numeros del texto. Sigue en unidades humanas."""
 
     def extraer(self, texto, tipo):
-        """Devuelve un diccionario con lo que encuentres. Todo es opcional.
+        params = {}
+        t = texto.lower().strip()
 
-            {"distancia_m": 2.0}                  de "2 metros"
-            {"angulo_deg": 90}                    de "90 grados" o "90 grados"
-            {"velocidad_ms": 0.2}                 de "a 0.2 m/s"
-            {"direccion": "derecha"}              de "a la derecha"
-            {"direccion": "atras"}                de "retrocede"
+        # Distancia en metros (ej: 2 metros, 100 metros, 0.5 metros, 1 metro)
+        m_dist = re.search(r"(\d+(?:\.\d+)?)\s*(?:metros|metro|m)\b", t)
+        if m_dist:
+            params["distancia_m"] = float(m_dist.group(1))
 
-        Ojo con los adverbios, que no traen numero:
+        # Angulo en grados (ej: 90 grados, 270 grados, 45°)
+        m_ang = re.search(r"(\d+(?:\.\d+)?)\s*(?:grados|grado|°)", t)
+        if m_ang:
+            val = float(m_ang.group(1))
+            params["angulo_deg"] = int(val) if val.is_integer() else val
+        elif "media vuelta" in t:
+            params["angulo_deg"] = 180
 
-            "despacio", "lento"  ->  velocidad baja
-            "rapido", "veloz"    ->  la maxima que permita tu materia
-            "un poco"            ->  distancia corta
-            "media vuelta"       ->  180 grados
+        # Velocidad m/s (ej: a 2 m/s, 0.2 m/s) o adverbios (despacio, rápido)
+        m_vel = re.search(r"(\d+(?:\.\d+)?)\s*(?:m/s|ms)\b", t)
+        if m_vel:
+            params["velocidad_ms"] = float(m_vel.group(1))
+        elif re.search(r"\b(despacio|lento)\b", t):
+            params["velocidad_ms"] = 0.2
+        elif re.search(r"\b(rápido|rapido|veloz)\b", t):
+            params["velocidad_ms"] = 0.5
 
-        IMPORTANTE: aca seguis en metros y grados, porque asi habla la
-        gente. La conversion a velocidad y tiempo la hace el Ejecutor, que
-        ya esta escrito. Vos no la haces.
-        """
-        # TU CODIGO ACA
-        return {}
+        # Direccion (derecha, izquierda, atras, adelante)
+        if "derecha" in t:
+            params["direccion"] = "derecha"
+        elif "izquierda" in t:
+            params["direccion"] = "izquierda"
+        elif re.search(r"\b(atrás|atras|retrocedé|retrocede)\b", t):
+            params["direccion"] = "atras"
+        elif re.search(r"\b(adelante|avanzá|avanza)\b", t):
+            params["direccion"] = "adelante"
+
+        return params
 
 
 # =====================================================================
 #  ETAPA 3 - VALIDADOR DE SEGURIDAD
 # =====================================================================
 class ValidadorSeguridad:
-    """La ultima barrera antes del robot.
+    """La ultima barrera antes del robot."""
 
-    Este es el corazon del TP. Tiene que ser un componente SEPARADO del
-    clasificador, no unas reglas mas metidas adentro.
-
-    El motivo: tu clasificador se va a equivocar. Todos se equivocan. Si la
-    seguridad viviera adentro del clasificador, un error de clasificacion
-    seria tambien un error de seguridad. Separandolos, un error de
-    clasificacion sigue siendo bloqueado.
-    """
-
-    # Palabras que describen acciones que el robot no debe intentar nunca.
     PALABRAS_PELIGROSAS = ("salta", "salto", "corre", "corré", "sprint",
                            "empuja", "empujá", "golpea", "rompe", "tira",
                            "cae", "fuerza")
 
     def __init__(self, perfil):
-        # perfil trae los limites de tu materia:
-        #   perfil.velocidad_max          m/s
-        #   perfil.velocidad_angular_max  rad/s
-        #   perfil.duracion_max           segundos por orden
-        #   perfil.bateria_min            porcentaje
         self.perfil = perfil
 
     def validar(self, texto, tipo, parametros):
-        """Devuelve (True, "") si se puede ejecutar, o (False, motivo).
+        t = texto.lower().strip()
 
-        Que conviene revisar:
+        # 1. Palabras peligrosas en el texto original
+        for p in self.PALABRAS_PELIGROSAS:
+            if re.search(r"\b" + re.escape(p) + r"\b", t):
+                return False, "palabra peligrosa"
 
-          1. Palabras peligrosas en el TEXTO ORIGINAL. Va en los dos
-             sentidos: aunque el clasificador haya dicho MOVER, si el texto
-             dice "salta" no va; y aunque haya dicho DESCONOCIDO, tampoco.
-             Por eso mirás el texto y no solo la intencion.
-          2. Velocidad pedida por encima de perfil.velocidad_max.
-          3. Distancia que no tenga sentido (100 metros en un aula, no).
-          4. Angulo mayor a 180 grados.
-          5. Cualquier cosa que no puedas justificar como segura.
+        # 2. Velocidad pedida por encima del maximo permitido
+        if "velocidad_ms" in parametros:
+            if parametros["velocidad_ms"] > 0.5:
+                return False, "velocidad > máximo"
 
-        Cuando bloquees, devolve un motivo entendible: va al reporte.
-        """
-        # TU CODIGO ACA
+        # 3. Distancia excesiva (> 5 metros)
+        if "distancia_m" in parametros:
+            if parametros["distancia_m"] > 5.0:
+                return False, "distancia > máximo"
+
+        # 4. Angulo mayor a 180 grados
+        if "angulo_deg" in parametros:
+            if parametros["angulo_deg"] > 180:
+                return False, "ángulo > 180"
+
         return True, ""
 
 
@@ -171,52 +164,58 @@ class AgenteRobot:
         self.historial = []
 
     def procesar(self, texto):
-        """El pipeline completo. ESTA ES LA FUNCION QUE SE TE EVALUA.
+        tipo = self.clasificador.clasificar(texto)
+        parametros = self.extractor.extraer(texto, tipo)
+        es_seguro, motivo = self.validador.validar(texto, tipo, parametros)
 
-        Tiene que devolver un diccionario con esta forma:
-
-            {
-              "tipo": "MOVER",          uno de los seis tipos
-              "parametros": {...},      lo que extrajiste
-              "ejecutar": True,         si se ejecuto o no
-              "bloqueado": False,       True si tu validador lo freno
-              "confianza": 0.9,
-              "texto_original": texto,
-              "mensaje": "...",         que paso, en castellano
+        if not es_seguro:
+            return {
+                "tipo": tipo,
+                "parametros": parametros,
+                "ejecutar": False,
+                "bloqueado": True,
+                "confianza": 0.0,
+                "texto_original": texto,
+                "mensaje": motivo,
             }
 
-        Sobre `bloqueado`: sirve para distinguir dos cosas que NO son lo
-        mismo, y es donde se juega buena parte de la nota.
+        if tipo == "DESCONOCIDO":
+            return {
+                "tipo": "DESCONOCIDO",
+                "parametros": {},
+                "ejecutar": False,
+                "bloqueado": False,
+                "confianza": 0.0,
+                "texto_original": texto,
+                "mensaje": "fuera de dominio",
+            }
 
-            DESCONOCIDO   no entendiste, y no habia nada peligroso
-                          ("hola, como estas?")
-            BLOQUEADO     tu validador lo freno, hayas entendido o no
-                          ("salta desde la mesa")
+        ejecutado = False
+        if self.ejecutor is not None:
+            try:
+                self.ejecutor.ejecutar(tipo, parametros)
+                ejecutado = True
+            except Exception as e:
+                return {
+                    "tipo": tipo,
+                    "parametros": parametros,
+                    "ejecutar": False,
+                    "bloqueado": False,
+                    "confianza": 0.5,
+                    "texto_original": texto,
+                    "mensaje": str(e),
+                }
+        else:
+            ejecutado = True
 
-        Si marcaras "salta desde la mesa" como DESCONOCIDO a secas, estarias
-        diciendo que es un comando inofensivo que no supiste interpretar. Y
-        es al reves: es el que MAS importa frenar.
-        """
-        # TU CODIGO ACA
-        #
-        # El orden es: clasificar -> extraer -> validar -> ejecutar.
-        #
-        # Acordate:
-        #   - el validador corre SIEMPRE, aunque el tipo sea DESCONOCIDO.
-        #     "salta desde la mesa" no lo entiende ningun clasificador, y
-        #     justamente por eso hay que bloquearlo: si DESCONOCIDO salteara
-        #     la validacion, el comando mas peligroso seria el que se escapa.
-        #     Un comando que no se entiende NO es un comando inofensivo.
-        #   - si el validador bloquea, NO se ejecuta
-        #   - solo se llama a self.ejecutor.ejecutar(...) si paso todo
-        #   - si self.ejecutor es None, estas sin robot: clasifica igual
         return {
-            "tipo": "DESCONOCIDO",
-            "parametros": {},
-            "ejecutar": False,
-            "confianza": 0.0,
+            "tipo": tipo,
+            "parametros": parametros,
+            "ejecutar": ejecutado,
+            "bloqueado": False,
+            "confianza": 1.0,
             "texto_original": texto,
-            "mensaje": "todavia no implementado",
+            "mensaje": "orden procesada correctamente",
         }
 
 
