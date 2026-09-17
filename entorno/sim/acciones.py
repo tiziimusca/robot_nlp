@@ -21,10 +21,16 @@ from __future__ import annotations
 PERMITIDAS: dict[str, dict[str, tuple[str, str]]] = {
     "g1": {
         "saludo": ("saludar", "Saluda con la mano"),
+        "dar_paso": ("dar_paso", "Gesto de dar paso: inclinacion de torso y brazos al costado"),
         "dar_la_mano": ("dar_la_mano", "Extiende la mano para saludar"),
+        "alto": ("alto", "Gesto de ALTO: extiende brazo y palma arriba"),
+        "stop": ("alto", "Gesto de ALTO: extiende brazo y palma arriba"),
     },
     "go2": {
         "saludo": ("saludar", "Saluda"),
+        "dar_paso": ("dar_paso", "Saluda"),
+        "alto": ("alto", "Posición de ALTO"),
+        "stop": ("alto", "Posición de ALTO"),
     },
 }
 

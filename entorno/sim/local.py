@@ -145,7 +145,6 @@ class ServidorLocal(socketserver.ThreadingTCPServer):
         return {"ok": True}
 
     def _orden_detener(self, _pedido: dict) -> dict:
-        # Frenar es velocidad cero. NUNCA desenergizar ni cambiar la postura.
         self.mundo.detener()
         return {"ok": True}
 
@@ -255,7 +254,13 @@ class ClienteLocal:
         return self._codigo(self._pedir({"orden": "detener"}))
 
     def WaveHand(self) -> int:
-        return self._codigo(self._pedir({"orden": "gesto", "nombre": "saludo"}))
+        return self._codigo(self._pedir({"orden": "gesto", "nombre": "saludo", "duracion": 999999.0}))
+
+    def DarPaso(self) -> int:
+        return self._codigo(self._pedir({"orden": "gesto", "nombre": "dar_paso", "duracion": 999999.0}))
+
+    def StopGesture(self) -> int:
+        return self._codigo(self._pedir({"orden": "gesto", "nombre": "alto", "duracion": 999999.0}))
 
     def ShakeHand(self) -> int:
         return self._codigo(self._pedir({"orden": "gesto",

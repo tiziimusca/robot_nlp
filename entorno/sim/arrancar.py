@@ -290,8 +290,12 @@ class SimuladorOficial:
             for idx, valor in self.robot.pose_sentado.items():
                 if idx < len(art):
                     art[idx] = valor
-        elif e["accion"] in ("saludando", "besando"):
+        elif e["accion"] in ("saludando", "besando", "saludo", "dar_paso"):
             for idx, valor in self.robot.saludo.items():
+                if idx < len(art):
+                    art[idx] = valor
+        elif e["accion"] in ("alto", "stop"):
+            for idx, valor in getattr(self.robot, "pose_alto", {}).items():
                 if idx < len(art):
                     art[idx] = valor
         elif e["moviendose"]:

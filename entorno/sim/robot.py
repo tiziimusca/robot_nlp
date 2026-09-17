@@ -337,10 +337,26 @@ class Robot:
         return self.verificar_estado()
 
     def detenerse(self) -> EstadoRobot:
-        """Velocidad a cero. NO apaga el robot ni lo sienta ni lo desenergiza."""
+        """Velocidad a cero y postura de ALTO/STOP."""
         self._exigir_conexion()
         self._cliente.StopMove()
+        metodo_alto = getattr(self._cliente, "StopGesture", None)
+        if metodo_alto is not None:
+            try:
+                metodo_alto()
+            except Exception:
+                pass
         time.sleep(0.15)
+        return self.verificar_estado()
+
+    def hacer_alto(self) -> EstadoRobot:
+        """Gesto explícito de ALTO con el brazo extendido y la palma levantada hacia arriba."""
+        self._exigir_conexion()
+        metodo = getattr(self._cliente, "StopGesture", None)
+        if metodo is not None:
+            metodo()
+        else:
+            self._cliente.StopMove()
         return self.verificar_estado()
 
     def saludar(self) -> EstadoRobot:
@@ -349,9 +365,17 @@ class Robot:
             metodo = getattr(self._cliente, nombre, None)
             if metodo is not None:
                 metodo()
-                time.sleep(2.0)
                 return self.verificar_estado()
         raise NotImplementedError("Este robot no tiene un gesto de saludo.")
+
+    def dar_paso(self) -> EstadoRobot:
+        """Gesto de habilitar paso: brazos abajo y reverencia leve de torso."""
+        self._exigir_conexion()
+        metodo = getattr(self._cliente, "DarPaso", None)
+        if metodo is not None:
+            metodo()
+            return self.verificar_estado()
+        return self.saludar()
 
     def dar_la_mano(self) -> EstadoRobot:
         """Extiende la mano. Solo el G1: el Go2 no tiene manos."""

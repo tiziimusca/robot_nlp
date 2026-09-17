@@ -94,6 +94,7 @@ class Robot:
     # animan al caminar: (indice, amplitud, desfase)
     marcha: list = field(default_factory=list)
     saludo: dict = field(default_factory=dict)
+    pose_alto: dict = field(default_factory=dict)
     pose_sentado: dict = field(default_factory=dict)
 
     def ruta_escena(self) -> str | None:
@@ -114,8 +115,9 @@ class Robot:
 # Indices relativos (qpos real = 7 + indice)
 G1_L_HIP_P, G1_L_KNEE = 0, 3
 G1_R_HIP_P, G1_R_KNEE = 6, 9
-G1_L_SHOULDER_P, G1_L_ELBOW = 15, 18
-G1_R_SHOULDER_P, G1_R_ELBOW = 22, 25
+G1_WAIST_Y, G1_WAIST_R, G1_WAIST_P = 12, 13, 14
+G1_L_SHOULDER_P, G1_L_SHOULDER_R, G1_L_SHOULDER_Y, G1_L_ELBOW, G1_L_WRIST_P = 15, 16, 17, 18, 20
+G1_R_SHOULDER_P, G1_R_SHOULDER_R, G1_R_SHOULDER_Y, G1_R_ELBOW, G1_R_WRIST_P = 22, 23, 24, 25, 27
 
 G1 = Robot(
     clave="g1",
@@ -135,7 +137,25 @@ G1 = Robot(
         (G1_L_SHOULDER_P, 0.30, math.pi),
         (G1_R_SHOULDER_P, 0.30, 0.0),
     ],
-    saludo={G1_R_SHOULDER_P: -2.4, G1_R_ELBOW: -1.0},
+    # Gesto de habilitación de paso: brazos abajo a los costados y leve inclinación respetuosa del torso
+    saludo={
+        G1_WAIST_P: 0.22,              # Leve inclinación hacia adelante (~12°)
+        G1_L_SHOULDER_P: 0.20,         # Brazo izquierdo abajo al costado
+        G1_R_SHOULDER_P: 0.20,         # Brazo derecho abajo al costado
+        G1_L_ELBOW: -0.30,             # Codo izquierdo relajado
+        G1_R_ELBOW: -0.30,             # Codo derecho relajado
+        G1_R_SHOULDER_R: 0.0,
+        G1_R_SHOULDER_Y: 0.0,
+        G1_R_WRIST_P: 0.0,             # Muñeca relajada
+    },
+    pose_alto={
+        G1_WAIST_P: 0.0,               # Torso erguido
+        G1_R_SHOULDER_P: -0.80,        # Brazo derecho extendido hacia el frente horizontal
+        G1_R_SHOULDER_R: 0.15,         # Alineado al frente del torso
+        G1_R_SHOULDER_Y: -0.35,        # Orientación del brazo
+        G1_R_ELBOW: 0.50,              # Brazo estirado hacia adelante
+        G1_R_WRIST_P: -1.15,           # Palma levantada hacia arriba/frente (STOP)
+    },
     # Agachado (FSM Sit / Damp). No es un desplome: es una postura.
     pose_sentado={G1_L_HIP_P: -1.2, G1_R_HIP_P: -1.2,
                   G1_L_KNEE: 1.8, G1_R_KNEE: 1.8},

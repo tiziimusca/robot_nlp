@@ -56,12 +56,14 @@ class Visor:
             if idx < len(art):
                 art[idx] = valor
 
-        if e["accion"] in ("saludando", "besando"):
+        if e["accion"] in ("saludando", "besando", "saludo", "dar_paso"):
             for idx, valor in self.robot.saludo.items():
                 if idx < len(art):
-                    art[idx] = valor + (
-                        0.35 * math.sin(time.time() * 7.0) if e["accion"] == "saludando" else 0.0
-                    )
+                    art[idx] = valor
+        elif e["accion"] in ("alto", "stop"):
+            for idx, valor in getattr(self.robot, "pose_alto", {}).items():
+                if idx < len(art):
+                    art[idx] = valor
         elif e["moviendose"]:
             f = e["fase"]
             for idx, amplitud, desfase in self.robot.marcha:
